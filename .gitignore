@@ -3,3 +3,5 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+# El taller se genera en local y no se sube: GitHub Pages publica todo lo que está en el repositorio.
+taller/index.html
