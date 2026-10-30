@@ -20,6 +20,21 @@ node build.mjs        # regenera index.html desde src/
 node serve.mjs 5180   # opcional: servidor local en http://127.0.0.1:5180/
 ```
 
+## Landing de LemonSuly
+
+`landing/` es la página de la marca, con un playground para armar un lemon pie: tamaño, masa, relleno, acidez, merengue (con su tostado), toppings y un banderín con mensaje. El pie se dibuja en SVG con el estilo del logo y el diseño queda guardado en el enlace (`#pie?…`).
+
+```bash
+node serve.mjs 5180   # luego abrir http://127.0.0.1:5180/landing/
+```
+
+| Archivo | Qué hace |
+|---|---|
+| `landing/pie.js` | Catálogo, precios de ejemplo y el dibujo del pie, del corte de una porción y de los íconos. |
+| `landing/app.js` | La carta, el playground, el pedido y las microinteracciones. En `CONTACT` se carga el WhatsApp para enviar el pedido directo. |
+| `landing/styles.css` | Paleta y tipografía de la marca (Montserrat, Nunito y Caveat). |
+| `landing/assets/` | Logos recortados del manual de marca. |
+
 ## Estructura
 
 | Archivo | Qué hace |
