@@ -7,6 +7,12 @@
 
   const C = Pie.CATALOG;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const coarse = matchMedia("(pointer: coarse)").matches;
+  // En pantallas táctiles: el menú compartir del teléfono y una vibración corta al elegir.
+  const canShare = coarse && typeof navigator.share === "function";
+  const buzz = (pattern = 8) => {
+    if (coarse && !reduced && navigator.vibrate) navigator.vibrate(pattern);
+  };
   const money = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
   const fmt = (value) => `$ ${money.format(value)}`;
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -60,6 +66,30 @@
         <button type="button" class="btn btn-soft btn-sm" data-preset="${i}">Personalizar <span class="arrow" aria-hidden="true">→</span></button></div>
       </div></article>`;
   }).join("");
+
+  // En el teléfono la carta es un carrusel: los puntos marcan la tarjeta visible y llevan a cada una.
+  const cardsEl = $("[data-presets]");
+  const cardEls = $$(".card", cardsEl);
+  const dotsEl = $("[data-cards-dots]");
+  dotsEl.innerHTML = PRESETS.map((p, i) => `<button type="button" data-dot="${i}" aria-label="Ver ${p.name}"></button>`).join("");
+  const dots = $$("button", dotsEl);
+  const carousel = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const i = cardEls.indexOf(entry.target);
+        dots.forEach((d, j) => d.setAttribute("aria-current", String(i === j)));
+      }
+    },
+    { root: cardsEl, threshold: 0.6 },
+  );
+  cardEls.forEach((card) => carousel.observe(card));
+  dotsEl.addEventListener("click", (e) => {
+    const dot = e.target.closest("[data-dot]");
+    if (!dot) return;
+    const card = cardEls[dot.dataset.dot];
+    cardsEl.scrollTo({ left: card.offsetLeft - (cardsEl.clientWidth - card.offsetWidth) / 2, behavior: reduced ? "auto" : "smooth" });
+  });
 
   // ---------- hero ----------
 
@@ -175,15 +205,18 @@
   // ---------- playground: resumen ----------
 
   const totalEl = $("[data-total]");
+  const dockTotal = $("[data-dock-total]");
   const deltaEl = $("[data-delta]");
   let shown = 0;
   let raf = 0;
+
+  const showTotal = (value) => (totalEl.textContent = dockTotal.textContent = fmt(value));
 
   function countTo(target) {
     cancelAnimationFrame(raf);
     if (reduced) {
       shown = target;
-      totalEl.textContent = fmt(target);
+      showTotal(target);
       return;
     }
     const from = shown;
@@ -191,7 +224,7 @@
     const tick = (now) => {
       const k = Math.min(1, (now - t0) / 480);
       shown = Math.round(from + (target - from) * (1 - (1 - k) ** 3));
-      totalEl.textContent = fmt(shown);
+      showTotal(shown);
       if (k < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -204,6 +237,7 @@
     const before = Pie.quote(prev);
 
     $("[data-stage-tag]").textContent = `${sizeText(s)} · ${portions(q.servings)}`;
+    $("[data-dock-size]").textContent = `${sizeText(s)} · ${portions(q.servings)}`;
     $("[data-facts]").textContent = `${sizeText(s)} · ${portions(q.servings)} · ${Pie.byId(C.ACIDITY, s.acidity).label.toLowerCase()}`;
     $("[data-slice]").innerHTML = Pie.slice(s, "pg-slice");
 
@@ -242,6 +276,7 @@
       deltaEl.textContent = `${diff > 0 ? "+" : "−"} ${fmt(Math.abs(diff))}`;
       deltaEl.className = `delta ${diff > 0 ? "is-up" : "is-down"}`;
       void deltaEl.offsetWidth;
+      restart(dockTotal, "is-bump");
     }
     countTo(q.total);
   }
@@ -249,7 +284,11 @@
   form.addEventListener("input", (e) => {
     touched = true;
     const quiet = e.target.name === "toast" || e.target.name === "message";
+    if (!quiet) buzz();
     apply(readForm(), { animate: !quiet });
+  });
+  form.addEventListener("change", (e) => {
+    if (e.target.name === "toast") buzz(6);
   });
   form.addEventListener("submit", (e) => e.preventDefault());
 
@@ -257,7 +296,9 @@
     const step = e.target.closest("[data-qty-step]");
     if (!step) return;
     const input = form.elements.qty;
-    input.value = Math.max(1, Math.min(C.MAX_QTY, Number(input.value) + Number(step.dataset.qtyStep)));
+    const next = Math.max(1, Math.min(C.MAX_QTY, Number(input.value) + Number(step.dataset.qtyStep)));
+    if (next === Number(input.value)) return;
+    input.value = next;
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
@@ -270,6 +311,7 @@
 
   function load(next, { scroll = false } = {}) {
     touched = true;
+    buzz();
     writeForm(next);
     apply(next);
     if (scroll) {
@@ -291,9 +333,118 @@
     burst(e.clientX, e.clientY, 8);
   });
 
-  // ---------- pedido ----------
+  // ---------- hojas: menú y pedido ----------
 
+  // En el teléfono el menú y el pedido suben desde abajo; se cierran tocando afuera, con Esc o deslizándolos hacia abajo.
   const dialog = $("[data-order-dialog]");
+  const menu = $("[data-menu]");
+  const narrow = matchMedia("(max-width: 640px)");
+  const asSheet = (d) => d === menu || narrow.matches;
+
+  function openSheet(d) {
+    d.showModal();
+    document.documentElement.classList.add("has-sheet");
+    buzz(10);
+    updateDock();
+  }
+
+  function closeSheet(d, then) {
+    if (!d.open || d.classList.contains("is-closing")) return;
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      d.classList.remove("is-closing");
+      d.style.transform = "";
+      d.close();
+      then?.();
+    };
+    if (reduced) return done();
+    d.classList.add("is-closing");
+    d.addEventListener("animationend", done, { once: true });
+    setTimeout(done, 450);
+  }
+
+  for (const d of [dialog, menu]) {
+    d.addEventListener("close", () => {
+      if (!dialog.open && !menu.open) document.documentElement.classList.remove("has-sheet");
+      updateDock();
+    });
+    d.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      closeSheet(d);
+    });
+    // Un toque fuera de la hoja (en el fondo oscuro) la cierra.
+    d.addEventListener("click", (e) => {
+      const r = d.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeSheet(d);
+    });
+    let startY = 0;
+    let dy = 0;
+    let dragging = false;
+    d.addEventListener("pointerdown", (e) => {
+      if (!asSheet(d) || !e.target.closest("[data-drag]")) return;
+      dragging = true;
+      startY = e.clientY;
+      dy = 0;
+      d.classList.add("is-dragging");
+      d.setPointerCapture(e.pointerId);
+    });
+    d.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      dy = Math.max(0, e.clientY - startY);
+      d.style.transform = `translateY(${dy}px)`;
+    });
+    const release = () => {
+      if (!dragging) return;
+      dragging = false;
+      d.classList.remove("is-dragging");
+      if (dy > 90) closeSheet(d);
+      else d.style.transform = "";
+    };
+    d.addEventListener("pointerup", release);
+    d.addEventListener("pointercancel", release);
+  }
+
+  $("[data-menu-open]").addEventListener("click", () => openSheet(menu));
+  menu.addEventListener("click", (e) => {
+    const link = e.target.closest("a[href^='#']");
+    if (!link) return;
+    e.preventDefault();
+    closeSheet(menu, () => $(link.hash).scrollIntoView({ behavior: reduced ? "auto" : "smooth" }));
+  });
+
+  // ---------- barra inferior ----------
+
+  // En pantallas angostas la acción principal queda abajo, al alcance del pulgar:
+  // fuera del playground invita a armar el pie; dentro, muestra el total y el botón para pedir.
+  const dock = $("[data-dock]");
+  const dockQuery = matchMedia("(max-width: 1020px)");
+  const seen = { cta: false, play: false, actions: false, footer: false };
+
+  function updateDock() {
+    const mode = seen.play ? "order" : "cta";
+    dock.dataset.mode = mode;
+    const on = dockQuery.matches && !dialog.open && !menu.open && (mode === "order" ? !seen.actions : !seen.cta && !seen.footer);
+    dock.classList.toggle("is-on", on);
+    dock.inert = !on;
+  }
+
+  const watch = (selector, key, rootMargin = "0px") =>
+    new IntersectionObserver(
+      ([entry]) => {
+        seen[key] = entry.isIntersecting;
+        updateDock();
+      },
+      { rootMargin },
+    ).observe($(selector));
+  watch(".hero-ctas", "cta");
+  watch(".playground", "play", "-35% 0px -35% 0px");
+  watch(".summary-actions", "actions");
+  watch(".site-footer", "footer");
+  dockQuery.addEventListener("change", updateDock);
+
+  // ---------- pedido ----------
 
   function orderText() {
     const s = state;
@@ -313,36 +464,69 @@
     return lines.join("\n");
   }
 
-  $("[data-order]").addEventListener("click", () => {
+  const shareBtn = $("[data-share]");
+  const copyBtn = $("[data-copy-order]");
+  const doneEl = $("[data-order-done]");
+  // Con el menú compartir del teléfono, «Enviar pedido» es la acción principal y copiar queda de respaldo.
+  shareBtn.hidden = !canShare;
+  copyBtn.classList.toggle("btn-primary", !canShare);
+  copyBtn.classList.toggle("btn-ghost", canShare);
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-order]")) return;
     const body = orderText();
     $("[data-order-text]").textContent = body;
     const wa = $("[data-whatsapp]");
     wa.hidden = !CONTACT.whatsapp;
     if (CONTACT.whatsapp) wa.href = `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(body)}`;
     $("[data-copy-label]").textContent = "Copiar pedido";
-    dialog.showModal();
+    doneEl.hidden = true;
+    openSheet(dialog);
   });
-  $("[data-close]").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+  $("[data-close]").addEventListener("click", () => closeSheet(dialog));
+
+  // El final del pedido: confirmación con un tilde y el siguiente paso, escribirnos.
+  function finished(from) {
+    buzz([12, 50, 18]);
+    doneEl.hidden = false;
+    restart(doneEl, "is-in");
+    const r = from.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, 18, dialog);
+  }
+
+  shareBtn.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.share({ title: "Mi lemon pie · LemonSuly", text: $("[data-order-text]").textContent });
+      finished(btn);
+    } catch (err) {
+      if (err.name !== "AbortError" && (await copy($("[data-order-text]").textContent))) finished(btn);
+    }
   });
 
-  $("[data-copy-order]").addEventListener("click", async (e) => {
+  copyBtn.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     if (await copy($("[data-order-text]").textContent)) {
       $("[data-copy-label]").textContent = "¡Copiado!";
-      const r = btn.getBoundingClientRect();
-      burst(r.left + r.width / 2, r.top + r.height / 2, 18, dialog);
+      finished(btn);
       setTimeout(() => ($("[data-copy-label]").textContent = "Copiar pedido"), 2200);
     }
   });
 
-  $("[data-copy-link]").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
+  const linkBtn = $("[data-copy-link]");
+  linkBtn.textContent = canShare ? "Compartir diseño" : "Copiar enlace";
+  linkBtn.addEventListener("click", async () => {
+    if (canShare) {
+      try {
+        await navigator.share({ title: "Mi lemon pie · LemonSuly", text: "Mira el lemon pie que armé en LemonSuly", url: shareUrl() });
+        buzz();
+      } catch {}
+      return;
+    }
     if (await copy(shareUrl())) {
       say("Enlace copiado: tu diseño queda guardado ahí");
-      btn.textContent = "¡Enlace copiado!";
-      setTimeout(() => (btn.textContent = "Copiar enlace"), 2200);
+      linkBtn.textContent = "¡Enlace copiado!";
+      setTimeout(() => (linkBtn.textContent = "Copiar enlace"), 2200);
     }
   });
 
@@ -445,7 +629,8 @@
   ig.href = `https://www.instagram.com/${CONTACT.instagram}/`;
   ig.target = "_blank";
   ig.rel = "noopener";
-  $("[data-instagram-handle]").textContent = `@${CONTACT.instagram}`;
+  for (const el of $$("[data-instagram-handle]")) el.textContent = `@${CONTACT.instagram}`;
+  $("[data-instagram-dm]").href = `https://ig.me/m/${CONTACT.instagram}`;
   $("[data-year]").textContent = new Date().getFullYear();
 
   if (fromHash()) requestAnimationFrame(() => $("#arma").scrollIntoView());

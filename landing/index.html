@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LemonSuly · Pastelería artesanal</title>
 <meta name="description" content="LemonSuly, pastelería artesanal y repostería creativa. Lemon pies hechos a mano con ingredientes naturales: elige uno de la casa o arma el tuyo, capa por capa.">
 <meta name="theme-color" content="#FFF8EC">
@@ -26,7 +26,8 @@
       <a href="#suly">Sobre Suly</a>
       <a href="#pedir">Cómo pedir</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="#arma"><span class="btn-lemon" aria-hidden="true"></span>Pedir ahora</a>
+    <a class="btn btn-primary btn-sm header-cta" href="#arma"><span class="btn-lemon" aria-hidden="true"></span>Pedir ahora</a>
+    <button type="button" class="menu-btn" data-menu-open aria-label="Abrir el menú" aria-haspopup="dialog"><span></span><span></span><span></span></button>
   </div>
 </header>
 
@@ -73,6 +74,7 @@
         <p>Los lemon pies que siempre salen, también en versión individual. Toca «Personalizar» para llevarlo al playground y cambiarle lo que quieras.</p>
       </header>
       <div class="cards" data-presets></div>
+      <div class="cards-dots" data-cards-dots></div>
     </div>
   </section>
 
@@ -92,7 +94,7 @@
             <p class="stage-tag" data-stage-tag></p>
           </div>
           <div class="stage-tools">
-            <button type="button" class="btn btn-ghost btn-sm" data-reset>Empezar de nuevo</button>
+            <button type="button" class="btn btn-ghost btn-sm reset" data-reset aria-label="Empezar de nuevo"><span class="reset-icon" aria-hidden="true">↺</span><span class="reset-text">Empezar de nuevo</span></button>
           </div>
         </div>
 
@@ -217,13 +219,38 @@
   </div>
 </footer>
 
-<dialog class="order" data-order-dialog aria-labelledby="order-title">
-  <div class="order-head">
+<div class="dock" data-dock data-mode="cta" inert>
+  <a class="btn btn-primary dock-cta" href="#arma"><span class="btn-lemon" aria-hidden="true"></span>Arma tu lemon pie</a>
+  <div class="dock-order">
+    <div class="dock-sum"><small data-dock-size></small><strong data-dock-total></strong></div>
+    <button type="button" class="btn btn-primary" data-order><span class="btn-lemon" aria-hidden="true"></span>Pedir</button>
+  </div>
+</div>
+
+<dialog class="sheet menu-sheet" data-menu aria-label="Menú">
+  <div class="sheet-grab" data-drag aria-hidden="true"></div>
+  <nav class="sheet-nav" aria-label="Secciones">
+    <a href="#carta"><span class="sheet-ico" aria-hidden="true">🥧</span>La carta</a>
+    <a href="#arma"><span class="sheet-ico" aria-hidden="true">🍋</span>Arma tu pie</a>
+    <a href="#suly"><span class="sheet-ico" aria-hidden="true">👩‍🍳</span>Sobre Suly</a>
+    <a href="#pedir"><span class="sheet-ico" aria-hidden="true">📦</span>Cómo pedir</a>
+  </nav>
+</dialog>
+
+<dialog class="order sheet" data-order-dialog aria-labelledby="order-title">
+  <div class="sheet-grab" data-drag aria-hidden="true"></div>
+  <div class="order-head" data-drag>
     <img src="assets/logo-circulo.jpg" alt="" width="56" height="56">
-    <div><h3 id="order-title">¡Qué rico se ve!</h3><p>Copia este resumen y envíanoslo para coordinar tu pedido.</p></div>
+    <div><h3 id="order-title">¡Qué rico se ve!</h3><p>Envíanos este resumen para coordinar tu pedido.</p></div>
   </div>
   <pre class="order-text" data-order-text></pre>
+  <div class="order-done" data-order-done hidden>
+    <span class="done-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5 L9.5 17 L19 7.5"/></svg></span>
+    <div class="done-text"><b>¡Listo!</b><small>Mándanos el pedido por mensaje a <span data-instagram-handle></span> y lo coordinamos.</small></div>
+    <a class="btn btn-soft btn-sm" data-instagram-dm target="_blank" rel="noopener">Abrir Instagram</a>
+  </div>
   <div class="order-actions">
+    <button type="button" class="btn btn-primary" data-share hidden><span class="btn-lemon" aria-hidden="true"></span>Enviar pedido</button>
     <button type="button" class="btn btn-primary" data-copy-order><span class="btn-lemon" aria-hidden="true"></span><span data-copy-label>Copiar pedido</span></button>
     <a class="btn btn-soft" data-whatsapp target="_blank" rel="noopener" hidden>Enviar por WhatsApp</a>
     <button type="button" class="btn btn-ghost" data-close>Seguir armando</button>
