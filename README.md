@@ -35,6 +35,12 @@ node serve.mjs 5180   # luego abrir http://127.0.0.1:5180/landing/
 | `landing/styles.css` | Paleta y tipografía de la marca (Montserrat, Nunito y Caveat). |
 | `landing/assets/` | Logos recortados del manual de marca. |
 
+## Publicación en GitHub Pages
+
+Cada push a `main` publica el sitio con `.github/workflows/pages.yml`: la landing queda en la raíz y el taller de tortas en `/taller/`. También se puede lanzar a mano desde la pestaña Actions («Publicar en GitHub Pages» → Run workflow).
+
+Se configura una sola vez: en el repositorio, Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+
 ## Estructura
 
 | Archivo | Qué hace |
