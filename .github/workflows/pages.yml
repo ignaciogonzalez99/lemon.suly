@@ -1,5 +1,4 @@
-# Publica el sitio en GitHub Pages con cada push a main:
-# la landing de LemonSuly en la raíz y el taller de tortas en /taller/.
+# Publica la landing de LemonSuly (carpeta landing/) en GitHub Pages con cada push a main.
 # Requiere Settings → Pages → Source: «GitHub Actions».
 name: Publicar en GitHub Pages
 
@@ -26,17 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Armar el sitio
-        run: |
-          mkdir -p _site/taller
-          cp -r landing/. _site/
-          cp index.html _site/taller/index.html
-
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: landing
 
       - id: deployment
         uses: actions/deploy-pages@v4

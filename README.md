@@ -37,7 +37,7 @@ node serve.mjs 5180   # luego abrir http://127.0.0.1:5180/landing/
 
 ## Publicación en GitHub Pages
 
-Cada push a `main` publica el sitio con `.github/workflows/pages.yml`: la landing queda en la raíz y el taller de tortas en `/taller/`. También se puede lanzar a mano desde la pestaña Actions («Publicar en GitHub Pages» → Run workflow).
+Cada push a `main` publica la landing (`landing/`) en la raíz del sitio con `.github/workflows/pages.yml`. El taller de tortas no se publica. También se puede lanzar a mano desde la pestaña Actions («Publicar en GitHub Pages» → Run workflow).
 
 Se configura una sola vez: en el repositorio, Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
