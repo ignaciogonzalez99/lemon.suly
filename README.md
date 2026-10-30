@@ -22,7 +22,7 @@ node serve.mjs 5180   # opcional: servidor local en http://127.0.0.1:5180/
 
 ## Landing de LemonSuly
 
-`landing/` es la página de la marca, con un playground para armar un lemon pie: tamaño, masa, relleno, acidez, merengue (con su tostado), toppings y un banderín con mensaje. El pie se dibuja en SVG con el estilo del logo y el diseño queda guardado en el enlace (`#pie?…`).
+`landing/` es la página de la marca, con un playground para armar un lemon pie: tamaño (de individuales de 8 cm, de 1 a 6, hasta 26 cm), masa, relleno, acidez, merengue (con su tostado), toppings y un banderín con mensaje. El pie se dibuja en SVG con el estilo del logo y el diseño queda guardado en el enlace (`#pie?…`).
 
 ```bash
 node serve.mjs 5180   # luego abrir http://127.0.0.1:5180/landing/

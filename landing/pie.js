@@ -12,12 +12,16 @@
   const DOME = 50; // alto de la loma de merengue de los picos
   const VIEW = "-250 -262 500 460";
 
+  // Los individuales se piden por cantidad: cada uno es una porción y van varios sobre la fuente.
   const SIZES = [
-    { id: 12, label: "12 cm", note: "2 porciones", servings: 2, price: 8500, scale: 0.62 },
-    { id: 18, label: "18 cm", note: "8 porciones", servings: 8, price: 21000, scale: 0.8 },
-    { id: 22, label: "22 cm", note: "12 porciones", servings: 12, price: 29000, scale: 0.9 },
-    { id: 26, label: "26 cm", note: "16 porciones", servings: 16, price: 38000, scale: 1 },
+    { id: 8, name: "Individual", label: "8 cm", note: "1 porción", servings: 1, price: 3200, scale: 0.5, multi: true },
+    { id: 12, name: "Mini", label: "12 cm", note: "2 porciones", servings: 2, price: 8500, scale: 0.62 },
+    { id: 15, name: "Pequeño", label: "15 cm", note: "4 porciones", servings: 4, price: 14000, scale: 0.7 },
+    { id: 18, name: "Mediano", label: "18 cm", note: "8 porciones", servings: 8, price: 21000, scale: 0.8 },
+    { id: 22, name: "Grande", label: "22 cm", note: "12 porciones", servings: 12, price: 29000, scale: 0.9 },
+    { id: 26, name: "Fiesta", label: "26 cm", note: "16 porciones", servings: 16, price: 38000, scale: 1 },
   ];
+  const MAX_QTY = 6;
   const CRUSTS = [
     { id: "sablee", label: "Sablée de manteca", note: "Crocante y dorada", side: "#E7B463", top: "#F4CF86", shade: "#C98F45", price: 0 },
     { id: "galleta", label: "Galletita y manteca", note: "Rústica, bien tostada", side: "#B9783F", top: "#CB8E55", shade: "#93592C", price: 0, crumbs: "#8A5228" },
@@ -54,7 +58,7 @@
   const esc = (text) => String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   function defaults() {
-    return { size: 22, crust: "sablee", filling: "limon", acidity: 2, meringue: "picos", toast: 55, toppings: ["rodajas"], flag: true, message: "¡Feliz día!" };
+    return { size: 22, qty: 1, crust: "sablee", filling: "limon", acidity: 2, meringue: "picos", toast: 55, toppings: ["rodajas"], flag: true, message: "¡Feliz día!" };
   }
 
   // Lleva cualquier estado (de la URL, de un preset) a valores del catálogo.
@@ -62,6 +66,7 @@
     const base = defaults();
     const s = { ...base, ...input };
     s.size = byId(SIZES, s.size).id;
+    s.qty = Math.max(1, Math.min(MAX_QTY, Math.round(Number(s.qty) || 1)));
     s.crust = byId(CRUSTS, s.crust).id;
     s.filling = byId(FILLINGS, s.filling).id;
     s.acidity = byId(ACIDITY, s.acidity).id;
@@ -292,7 +297,8 @@
     return items;
   }
 
-  function flag(state, sw) {
+  // En los pies chicos el banderín se agranda un poco, para que el mensaje se siga leyendo.
+  function flag(state, sw, scale) {
     const r = 0.26;
     const a = -2.25;
     const [x, y] = at(r, a);
@@ -300,8 +306,10 @@
     const text = state.message.trim() || " ";
     const w = Math.max(70, Math.round(text.length * 10.5 + 30));
     const top = base - 112;
+    const grow = Math.max(1, 0.62 / scale);
+    const fit = grow > 1 ? ` transform="translate(${n(x)} ${n(base)}) scale(${n(grow * 100) / 100}) translate(${n(-x)} ${n(-base)})"` : "";
     return (
-      `<g class="pie-flag">` +
+      `<g class="pie-flag"${fit}>` +
       `<path d="M${n(x)} ${n(base)} L${n(x)} ${n(top - 4)}" stroke="${INK}" stroke-width="${sw(5.4)}" stroke-linecap="round"/>` +
       `<path d="M${n(x)} ${n(base)} L${n(x)} ${n(top - 4)}" stroke="#E2BF6E" stroke-width="${sw(2.6)}" stroke-linecap="round"/>` +
       `<g transform="translate(${n(x + 1)} ${n(top)})"><g class="pie-flag-cloth"><path d="M0 0 C${n(w * 0.35)} -6 ${n(w * 0.65)} 6 ${w} 0 L${w - 12} 17 L${w} 34 C${n(w * 0.65)} 40 ${n(w * 0.35)} 28 0 34 Z" fill="#4EAFB8" stroke="${INK}" stroke-width="${sw(2)}" stroke-linejoin="round"/>` +
@@ -313,21 +321,50 @@
 
   // ---------- armado ----------
 
-  function parts(input, { id = "pie", fresh = new Set(), pop = false } = {}) {
+  const countOf = (state) => (byId(SIZES, state.size).multi ? state.qty : 1);
+
+  // Dónde va cada pie sobre la fuente: uno al centro, o los individuales en una o dos filas.
+  function arrange(state) {
+    const count = countOf(state);
+    if (count === 1) return { scale: byId(SIZES, state.size).scale, spots: [[0, 0]] };
+    const rows = count <= 2 ? [count] : count <= 4 ? [2, count - 2] : [3, count - 3];
+    const scale = count <= 2 ? 0.44 : count <= 4 ? 0.4 : 0.33;
+    const dx = 2 * R * scale * 1.06;
+    const dy = 2 * R * scale * K * 1.15;
+    const spots = [];
+    rows.forEach((inRow, j) => {
+      const y = (j - (rows.length - 1) / 2) * dy;
+      for (let i = 0; i < inRow; i++) spots.push([(i - (inRow - 1) / 2) * dx, y]);
+    });
+    return { scale, spots };
+  }
+
+  // freshFrom: desde qué pie se anima la caída (los que se suman al subir la cantidad).
+  function parts(input, { id = "pie", fresh = new Set(), pop = false, freshFrom = Infinity } = {}) {
     const state = normalize(input);
-    const scale = byId(SIZES, state.size).scale;
+    const { scale, spots } = arrange(state);
     const sw = (w) => n(w / scale);
     const m = meringue(state, id, sw);
     const items = [...m.items, ...toppingItems(state, sw)].sort((a, b) => a.depth - b.depth);
-    let body = crust(state, sw) + filling(state, id, sw);
-    if (m.under) body += pop ? `<g class="pie-grow" style="--i:0">${m.under}</g>` : m.under;
+    let pie = crust(state, sw) + filling(state, id, sw);
+    if (m.under) pie += pop ? `<g class="pie-grow" style="--i:0">${m.under}</g>` : m.under;
     let mi = 0;
     for (const item of items) {
-      if (item.kind === "m" && pop) body += `<g class="pie-grow" style="--i:${Math.min(++mi, 40)}">${item.svg}</g>`;
-      else if (item.kind === "t" && fresh.has(item.topping)) body += `<g class="pie-drop" style="--i:${item.order}">${item.svg}</g>`;
-      else body += item.svg;
+      if (item.kind === "m" && pop) pie += `<g class="pie-grow" style="--i:${Math.min(++mi, 40)}">${item.svg}</g>`;
+      else if (item.kind === "t" && fresh.has(item.topping)) pie += `<g class="pie-drop" style="--i:${item.order}">${item.svg}</g>`;
+      else pie += item.svg;
     }
-    if (state.flag) body += fresh.has("flag") ? `<g class="pie-drop" style="--i:0">${flag(state, sw)}</g>` : flag(state, sw);
+    let flagged = pie;
+    if (state.flag) flagged += fresh.has("flag") ? `<g class="pie-drop" style="--i:0">${flag(state, sw, scale)}</g>` : flag(state, sw, scale);
+    if (spots.length === 1) return { defs: defs(state, id), body: flagged, scale };
+    // Un solo banderín, en el último pie: el de adelante a la derecha, que se dibuja encima de todos.
+    const body = spots
+      .map(([x, y], i) => {
+        const one = i === spots.length - 1 ? flagged : pie;
+        const inner = i >= freshFrom ? `<g class="pie-drop" style="--i:${i - freshFrom}">${one}</g>` : one;
+        return `<g transform="translate(${n(x / scale)} ${n(y / scale)})">${inner}</g>`;
+      })
+      .join("");
     return { defs: defs(state, id), body, scale };
   }
 
@@ -397,7 +434,7 @@
     return `<svg viewBox="-24 -24 48 48" aria-hidden="true">${draw}</svg>`;
   }
 
-  const KEYS = { size: "d", crust: "m", filling: "r", acidity: "a", meringue: "mg", toast: "t", toppings: "tp", flag: "b", message: "msg" };
+  const KEYS = { size: "d", qty: "q", crust: "m", filling: "r", acidity: "a", meringue: "mg", toast: "t", toppings: "tp", flag: "b", message: "msg" };
   function encode(state) {
     const s = normalize(state);
     const p = new URLSearchParams();
@@ -418,25 +455,26 @@
     return normalize(s);
   }
 
-  // Precio estimado: base por tamaño y extras proporcionales a la superficie del pie.
+  // Precio de un extra para un pie de este tamaño: proporcional a su superficie.
+  const extraPrice = (price, size) => Math.round((price * (size / 22) ** 2) / 100) * 100;
+
+  // Precio estimado: base por tamaño y extras por pie; los individuales se multiplican por la cantidad.
   function quote(input) {
     const s = normalize(input);
     const size = byId(SIZES, s.size);
-    const f = (s.size / 22) ** 2;
-    const round = (v) => Math.round(v / 100) * 100;
-    const lines = [{ label: `Lemon pie de ${size.label}`, price: size.price }];
+    const qty = countOf(s);
+    const times = qty > 1 ? ` × ${qty}` : "";
+    const lines = [{ label: `Lemon pie ${size.multi ? "individual " : ""}de ${size.label}${times}`, price: size.price * qty }];
+    const add = (label, price) => price && lines.push({ label: label + times, price: extraPrice(price, s.size) * qty });
     const crustItem = byId(CRUSTS, s.crust);
     const fillingItem = byId(FILLINGS, s.filling);
     const meringueItem = byId(MERINGUES, s.meringue);
-    if (crustItem.price) lines.push({ label: crustItem.label, price: round(crustItem.price * f) });
-    if (fillingItem.price) lines.push({ label: `Relleno ${fillingItem.label.toLowerCase()}`, price: round(fillingItem.price * f) });
-    if (meringueItem.price) lines.push({ label: `Merengue en ${meringueItem.label.toLowerCase()}`, price: round(meringueItem.price * f) });
-    for (const id of s.toppings) {
-      const t = byId(TOPPINGS, id);
-      lines.push({ label: t.label, price: round(t.price * f), topping: id });
-    }
+    add(crustItem.label, crustItem.price);
+    add(`Relleno ${fillingItem.label.toLowerCase()}`, fillingItem.price);
+    add(`Merengue en ${meringueItem.label.toLowerCase()}`, meringueItem.price);
+    for (const id of s.toppings) add(byId(TOPPINGS, id).label, byId(TOPPINGS, id).price);
     if (s.flag) lines.push({ label: "Banderín con mensaje", price: FLAG_PRICE });
-    return { lines, total: lines.reduce((sum, line) => sum + line.price, 0), servings: size.servings };
+    return { lines, total: lines.reduce((sum, line) => sum + line.price, 0), servings: size.servings * qty, qty };
   }
 
   function toastLabel(toast) {
@@ -447,9 +485,11 @@
   }
 
   global.Pie = {
-    CATALOG: { SIZES, CRUSTS, FILLINGS, ACIDITY, MERINGUES, TOPPINGS, FLAG_PRICE, MESSAGE_MAX },
+    CATALOG: { SIZES, CRUSTS, FILLINGS, ACIDITY, MERINGUES, TOPPINGS, FLAG_PRICE, MESSAGE_MAX, MAX_QTY },
     defaults,
     normalize,
+    countOf,
+    extraPrice,
     parts,
     stand,
     svg,

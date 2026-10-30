@@ -70,7 +70,7 @@
       <header class="section-head" data-reveal>
         <p class="eyebrow">La carta</p>
         <h2>Los favoritos de la casa</h2>
-        <p>Tres lemon pies que siempre salen. Toca «Personalizar» para llevarlo al playground y cambiarle lo que quieras.</p>
+        <p>Los lemon pies que siempre salen, también en versión individual. Toca «Personalizar» para llevarlo al playground y cambiarle lo que quieras.</p>
       </header>
       <div class="cards" data-presets></div>
     </div>
@@ -92,7 +92,6 @@
             <p class="stage-tag" data-stage-tag></p>
           </div>
           <div class="stage-tools">
-            <button type="button" class="btn btn-soft btn-sm" data-surprise><span class="dice" aria-hidden="true">🎲</span>Sorpréndeme</button>
             <button type="button" class="btn btn-ghost btn-sm" data-reset>Empezar de nuevo</button>
           </div>
         </div>
@@ -101,6 +100,17 @@
           <fieldset class="step">
             <legend><span class="num">1</span>Tamaño</legend>
             <div class="opts opts-size" data-opts="size"></div>
+            <div class="qty-wrap" data-qty>
+              <div class="qty">
+                <div class="qty-text"><b>¿Cuántos individuales?</b><small>Uno por persona, hasta 6.</small></div>
+                <div class="stepper">
+                  <button type="button" data-qty-step="-1" aria-label="Uno menos">−</button>
+                  <output data-qty-out aria-live="polite">1</output>
+                  <button type="button" data-qty-step="1" aria-label="Uno más">+</button>
+                </div>
+                <input type="hidden" name="qty" value="1">
+              </div>
+            </div>
           </fieldset>
           <fieldset class="step">
             <legend><span class="num">2</span>Masa</legend>
@@ -167,7 +177,7 @@
       <div class="suly-copy" data-reveal>
         <p class="eyebrow">Hola, soy Suly</p>
         <h2>Pastelería de casa, hecha con tiempo</h2>
-        <p>En LemonSuly creemos que un buen postre se hace sin apuro: la masa estirada a mano, la crema de limón cocinada despacio y el merengue dorado justo antes de salir.</p>
+        <p>En LemonSuly creemos que un buen postre se hace sin apuro: las galletas se trituran con paciencia, la crema de limón se cocina despacio y el merengue se dora justo antes de salir.</p>
         <p>Cada pedido se prepara a medida, para que llegue fresco a tu mesa y con ese toque cítrico que nos gusta tanto.</p>
         <p class="signature">Con cariño, Suly</p>
         <ul class="values">

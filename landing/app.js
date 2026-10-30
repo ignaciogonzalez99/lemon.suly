@@ -11,7 +11,12 @@
   const fmt = (value) => `$ ${money.format(value)}`;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-  const extra = (price, size) => Math.round((price * (size / 22) ** 2) / 100) * 100;
+  const portions = (count) => (count === 1 ? "1 porción" : `${count} porciones`);
+  // "Grande · 22 cm" o, para los individuales, "Individual · 8 cm × 4".
+  function sizeText(s) {
+    const size = Pie.byId(C.SIZES, s.size);
+    return `${size.name} · ${size.label}${size.multi && s.qty > 1 ? ` × ${s.qty}` : ""}`;
+  }
 
   // ---------- la carta ----------
 
@@ -37,6 +42,13 @@
       text: "Sablée de almendras, limón y maracuyá, corona de merengue, frutos rojos y flores.",
       state: { size: 22, crust: "almendra", filling: "maracuya", acidity: 2, meringue: "corona", toast: 45, toppings: ["frutos", "flores"], flag: false },
     },
+    {
+      name: "Individuales",
+      tag: "Para pocos",
+      color: "#DCF0F1",
+      text: "Lemon pies de 8 cm, uno por persona. Pide de 1 a 6 y decóralos como quieras.",
+      state: { size: 8, qty: 4, crust: "sablee", filling: "limon", acidity: 2, meringue: "gotas", toast: 55, toppings: ["rodajas", "menta"], flag: false },
+    },
   ];
 
   $("[data-presets]").innerHTML = PRESETS.map((p, i) => {
@@ -44,7 +56,7 @@
     return `<article class="card" data-reveal style="--c:${p.color}">
       <div class="card-art"><span class="card-tag">${p.tag}</span>${Pie.svg(p.state, { id: `carta-${i}`, label: `Lemon pie ${p.name.toLowerCase()}` })}</div>
       <div class="card-body"><h3>${p.name}</h3><p>${p.text}</p>
-        <div class="card-foot"><div class="price">${fmt(q.total)}<small>22 cm · ${q.servings} porciones</small></div>
+        <div class="card-foot"><div class="price">${fmt(q.total)}<small>${Pie.byId(C.SIZES, p.state.size).label}${q.qty > 1 ? ` × ${q.qty}` : ""} · ${portions(q.servings)}</small></div>
         <button type="button" class="btn btn-soft btn-sm" data-preset="${i}">Personalizar <span class="arrow" aria-hidden="true">→</span></button></div>
       </div></article>`;
   }).join("");
@@ -83,7 +95,7 @@
     sin: `<ellipse cx="22" cy="20" rx="19" ry="7" fill="#F8CF3C" stroke="currentColor" stroke-width="2"/><ellipse cx="16" cy="18" rx="6" ry="2" fill="#fff" opacity=".5"/>`,
   };
 
-  $('[data-opts="size"]').innerHTML = C.SIZES.map((s) => opt("radio", "size", s.id, `<span class="size-dot" aria-hidden="true"><span style="--w:${Math.round(12 + s.id * 1.45)}px"></span></span>${text(s.label, s.note)}`)).join("");
+  $('[data-opts="size"]').innerHTML = C.SIZES.map((s) => opt("radio", "size", s.id, `<span class="size-dot" aria-hidden="true"><span style="--w:${Math.round(12 + s.id * 1.45)}px"></span></span>${text(s.name, `${s.label} · ${s.note}`)}`)).join("");
   $('[data-opts="crust"]').innerHTML = C.CRUSTS.map((c) => opt("radio", "crust", c.id, `<span class="swatch" style="--chip:${c.side}" aria-hidden="true"></span>${text(c.label, c.note)}${extraTag(c.price)}`)).join("");
   $('[data-opts="filling"]').innerHTML = C.FILLINGS.map((f) => opt("radio", "filling", f.id, `<span class="swatch" style="--chip:${f.color}" aria-hidden="true"></span>${text(f.label, f.note)}${extraTag(f.price)}`)).join("");
   $('[data-opts="acidity"]').innerHTML = C.ACIDITY.map((a) => opt("radio", "acidity", a.id, `<span class="acid" aria-hidden="true">${[1, 2, 3].map((i) => `<i class="${i <= a.id ? "on" : ""}"></i>`).join("")}</span>${text(a.label)}`)).join("");
@@ -112,6 +124,7 @@
       else if (el.type === "checkbox") el.checked = el.name === "toppings" ? s.toppings.includes(el.value) : Boolean(s[el.name]);
       else if (el.name === "toast") el.value = s.toast;
       else if (el.name === "message") el.value = s.message;
+      else if (el.name === "qty") el.value = s.qty;
     }
   }
 
@@ -119,6 +132,7 @@
     const fd = new FormData(form);
     return Pie.normalize({
       size: fd.get("size"),
+      qty: form.elements.qty.value,
       crust: fd.get("crust"),
       filling: fd.get("filling"),
       acidity: fd.get("acidity"),
@@ -140,7 +154,10 @@
       for (const t of next.toppings) if (!prev.toppings.includes(t)) fresh.add(t);
       if (next.flag && !prev.flag) fresh.add("flag");
     }
-    const p = Pie.parts(next, { id: "pg", fresh, pop: animate && next.meringue !== prev.meringue });
+    // Al sumar individuales, caen solo los nuevos.
+    const before = Pie.countOf(prev);
+    const freshFrom = animate && next.size === prev.size && Pie.countOf(next) > before ? before : Infinity;
+    const p = Pie.parts(next, { id: "pg", fresh, pop: animate && next.meringue !== prev.meringue, freshFrom });
     defsEl.innerHTML = p.defs;
     bodyEl.innerHTML = p.body;
     scaleEl.style.transform = `scale(${p.scale})`;
@@ -186,9 +203,20 @@
     const q = Pie.quote(s);
     const before = Pie.quote(prev);
 
-    $("[data-stage-tag]").textContent = `${size.label} · ${size.servings} porciones`;
-    $("[data-facts]").textContent = `${size.label} · ${size.servings} porciones · ${Pie.byId(C.ACIDITY, s.acidity).label.toLowerCase()}`;
+    $("[data-stage-tag]").textContent = `${sizeText(s)} · ${portions(q.servings)}`;
+    $("[data-facts]").textContent = `${sizeText(s)} · ${portions(q.servings)} · ${Pie.byId(C.ACIDITY, s.acidity).label.toLowerCase()}`;
     $("[data-slice]").innerHTML = Pie.slice(s, "pg-slice");
+
+    const qtyBox = $("[data-qty]");
+    qtyBox.classList.toggle("is-on", Boolean(size.multi));
+    qtyBox.inert = !size.multi;
+    const qtyOut = $("[data-qty-out]");
+    if (qtyOut.textContent !== String(s.qty)) {
+      qtyOut.textContent = s.qty;
+      if (animate) restart(qtyOut, "is-pop");
+    }
+    $('[data-qty-step="-1"]').disabled = s.qty <= 1;
+    $('[data-qty-step="1"]').disabled = s.qty >= C.MAX_QTY;
 
     const toastBox = $("[data-toast]");
     const noMeringue = s.meringue === "sin";
@@ -203,7 +231,8 @@
     counter.textContent = `${s.message.length}/${C.MESSAGE_MAX}`;
     counter.classList.toggle("is-full", s.message.length >= C.MESSAGE_MAX);
 
-    for (const tag of $$("[data-extra]", form)) tag.textContent = `+ ${fmt(extra(Number(tag.dataset.extra), s.size))}`;
+    const each = q.qty > 1 ? " c/u" : "";
+    for (const tag of $$("[data-extra]", form)) tag.textContent = `+ ${fmt(Pie.extraPrice(Number(tag.dataset.extra), s.size))}${each}`;
 
     const old = new Set(before.lines.map((l) => l.label));
     $("[data-lines]").innerHTML = q.lines.map((l) => `<li${animate && !old.has(l.label) ? ' class="is-new"' : ""}><span>${l.label}</span><span>${fmt(l.price)}</span></li>`).join("");
@@ -223,6 +252,14 @@
     apply(readForm(), { animate: !quiet });
   });
   form.addEventListener("submit", (e) => e.preventDefault());
+
+  form.addEventListener("click", (e) => {
+    const step = e.target.closest("[data-qty-step]");
+    if (!step) return;
+    const input = form.elements.qty;
+    input.value = Math.max(1, Math.min(C.MAX_QTY, Number(input.value) + Number(step.dataset.qtyStep)));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
   writeForm(state);
   apply(state, { animate: false });
@@ -246,25 +283,6 @@
     if (preset) load(Pie.normalize({ ...PRESETS[preset.dataset.preset].state, message: state.message }), { scroll: true });
   });
 
-  $("[data-surprise]").addEventListener("click", (e) => {
-    const pick = (list) => list[Math.floor(Math.random() * list.length)];
-    const toppings = C.TOPPINGS.filter(() => Math.random() < 0.4).map((t) => t.id);
-    restart($(".dice", e.currentTarget), "is-rolling");
-    load(
-      Pie.normalize({
-        size: pick(C.SIZES.slice(1)).id,
-        crust: pick(C.CRUSTS).id,
-        filling: pick(C.FILLINGS).id,
-        acidity: pick(C.ACIDITY).id,
-        meringue: Math.random() < 0.1 ? "sin" : pick(C.MERINGUES.slice(0, 3)).id,
-        toast: Math.round(20 + Math.random() * 75),
-        toppings: toppings.length ? toppings : [pick(C.TOPPINGS).id],
-        flag: Math.random() < 0.5,
-        message: state.message || Pie.defaults().message,
-      }),
-    );
-  });
-
   $("[data-reset]").addEventListener("click", () => load(Pie.defaults()));
 
   stagePie.addEventListener("click", (e) => {
@@ -279,12 +297,12 @@
 
   function orderText() {
     const s = state;
-    const size = Pie.byId(C.SIZES, s.size);
     const m = Pie.byId(C.MERINGUES, s.meringue);
+    const count = Pie.countOf(s);
     const lines = [
-      "¡Hola, LemonSuly! Quiero pedir este lemon pie:",
+      `¡Hola, LemonSuly! Quiero pedir ${count > 1 ? `estos ${count} lemon pies individuales` : "este lemon pie"}:`,
       "",
-      `• Tamaño: ${size.label} (${size.servings} porciones)`,
+      `• Tamaño: ${sizeText(s)} (${portions(Pie.quote(s).servings)})`,
       `• Masa: ${Pie.byId(C.CRUSTS, s.crust).label}`,
       `• Relleno: ${Pie.byId(C.FILLINGS, s.filling).label}, ${Pie.byId(C.ACIDITY, s.acidity).label.toLowerCase()}`,
       `• Merengue: ${s.meringue === "sin" ? "sin merengue" : `${m.label.toLowerCase()}, ${Pie.toastLabel(s.toast).toLowerCase()}`}`,
